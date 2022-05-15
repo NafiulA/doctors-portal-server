@@ -18,17 +18,49 @@ const run = async () => {
 
         const database = client.db("doctors_portal");
         const serviceCollection = database.collection("services");
+        const bookingCollection = database.collection("booking");
 
         app.get("/services", async (req, res) => {
             const query = {};
-
             const cursor = serviceCollection.find(query);
-
             const services = await cursor.toArray();
-
             res.send(services);
+        });
 
+        app.get("/available", async (req, res) => {
+            const date = req.query.date;
+            const services = await serviceCollection.find().toArray();
+            const query = { date: date };
+            const bookings = await bookingCollection.find(query).toArray();
+            services.forEach(service => {
+                const serviceBookings = bookings.filter(b => b.treatmentName === service.name);
+                const booked = serviceBookings.map(s => s.slot);
+                const available = service.slots.filter(s => !booked.includes(s));
+                service.available = available;
+            })
+            res.send(services);
         })
+
+        app.get("/booking", async (req, res) => {
+            const patientEmail = req.query.patientEmail;
+            const query = { patientEmail: patientEmail };
+            const booking = await bookingCollection.find(query).toArray();
+            res.send(booking);
+        });
+
+
+        app.post("/booking", async (req, res) => {
+            const body = req.body;
+            const query = { treatmentName: body.treatmentName, date: body.date, patientEmail: body.patientEmail };
+            const exists = await bookingCollection.findOne(query);
+            if (exists) {
+                return res.send({ success: false, booking: exists });
+            }
+            const result = await bookingCollection.insertOne(body);
+            res.send({ success: true, booking: result });
+        });
+
+
 
     }
     finally {
