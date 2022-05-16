@@ -49,6 +49,13 @@ const run = async () => {
             res.send(users);
         });
 
+        app.get('/admin/:email', verifyJWT, async (req, res) => {
+            const email = req.params.email;
+            const user = await userCollection.findOne({ email: email });
+            const isAdmin = user.role === 'admin';
+            res.send({ admin: isAdmin })
+        })
+
         app.put('/user/admin/:email', verifyJWT, async (req, res) => {
             const email = req.params.email;
             const requester = req.decoded.email;
@@ -93,13 +100,18 @@ const run = async () => {
             res.send(services);
         })
 
-        app.get("/booking", async (req, res) => {
+        app.get('/booking', verifyJWT, async (req, res) => {
             const patientEmail = req.query.patientEmail;
-            const query = { patientEmail: patientEmail };
-            const booking = await bookingCollection.find(query).toArray();
-            res.send(booking);
-        });
-
+            const decodedEmail = req.decoded.email;
+            if (patientEmail === decodedEmail) {
+                const query = { patientEmail: patientEmail };
+                const booking = await bookingCollection.find(query).toArray();
+                return res.send(booking);
+            }
+            else {
+                return res.status(403).send({ message: 'forbidden access' });
+            }
+        })
 
         app.post("/booking", async (req, res) => {
             const body = req.body;
